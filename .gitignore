@@ -19,6 +19,7 @@ project/plugins/project/
 # Ignore Play! working directory #
 bin/
 /db
+.idea/
 .eclipse
 /lib/
 /logs/

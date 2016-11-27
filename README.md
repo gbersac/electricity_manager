@@ -3,7 +3,20 @@ Exercise to manage your electricity production
 
 ## Installation
 
-You'll need postgre sql. Install client and server using those [instructions](https://www.postgresql.org/download/) ([this one for debian](https://help.ubuntu.com/community/PostgreSQL)).
+You'll need postgre sql. Install client and server using those [instructions](https://www.postgresql.org/download/) ([this one for debian](https://help.ubuntu.com/community/PostgreSQL)). Make sure the postgres sql user has [MD5 authentification process](http://stackoverflow.com/a/32927981/2482582) :
+
+```sh
+sudo vim /etc/postgresql/9.3/main/pg_hba.conf # debian only
+```
+
+Then run the following commands :
+
+```sh
+psql -c 'create database electricity_manager;' -U postgres -W
+psql -c '\i conf/init_db.sql' -U postgres -d electricity_manager -W
+```
+
+Data base options are available in the conf file.
 
 ## Specification questions
 
