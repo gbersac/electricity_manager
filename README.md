@@ -1,6 +1,10 @@
 # electricity_manager
 Exercise to manage your electricity production
 
+## Installation
+
+You'll need postgre sql. Install client and server using those [instructions](https://www.postgresql.org/download/) ([this one for debian](https://help.ubuntu.com/community/PostgreSQL)).
+
 ## Specification questions
 
 > un utilisateur doit pouvoir s’enregistrer, s’identifier
