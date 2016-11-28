@@ -5,10 +5,10 @@ import javax.inject._
 import model.DataBase
 import play.api.mvc._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 
 @Singleton
-class HomeController @Inject() extends Controller {
+class HomeController(implicit exec: ExecutionContext) extends Controller {
 
   def index = Action.async {
     DataBase.getCities map { results => Ok(results)}
