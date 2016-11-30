@@ -1,16 +1,29 @@
 import org.scalatestplus.play._
+import play.api.mvc.Headers
 import play.api.test._
 import play.api.test.Helpers._
+import play.api.libs.json.{JsNull,Json,JsString,JsValue}
 
 class PowerStationSpec extends PlaySpec with OneAppPerTest {
 
   "Power station declaration" should {
 
+//    def oneTest()
+
     "succeed if it declares a Power station with capacity and type" in  {
+//      val body = Json.obj(
+//        "login" -> Json.obj(
+//
+//        ),
+//        "type" -> "solar panel",
+//        "code" -> "SP1",
+//        "max_capacity" -> 100
+//      )
+//      route(app, FakeRequest(POST, "/power_station/create", Headers(), body)).map(status) mustBe Some(NOT_FOUND)
       ???
     }
 
-    "fail if capacity of power station is negative" in  {
+    "fail if capacity of power station is negative or zero" in  {
       ???
     }
 

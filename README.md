@@ -12,8 +12,13 @@ sudo vim /etc/postgresql/9.3/main/pg_hba.conf # debian only
 Then run the following commands :
 
 ```sh
+# for production
 psql -c 'create database electricity_manager;' -U postgres -W
 psql -c '\i conf/init_db.sql' -U postgres -d electricity_manager -W
+
+#for test
+psql -c 'create database electricity_manager_test;' -U postgres -W
+psql -c '\i conf/init_db.sql' -U postgres -d electricity_manager_test -W
 ```
 
 Data base options are available in the conf file.

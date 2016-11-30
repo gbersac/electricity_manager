@@ -7,8 +7,7 @@ import play.api.mvc._
 
 import scala.concurrent.ExecutionContext
 
-@Singleton
-class PowerStationController(implicit exec: ExecutionContext) extends Controller {
+class PowerStationController @Inject() (implicit exec: ExecutionContext) extends Controller {
 
  def create = Action.async(parse.json) {
  	???
