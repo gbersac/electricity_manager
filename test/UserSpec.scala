@@ -1,5 +1,4 @@
 
-import controllers.UserController
 import model.DataBase
 import org.scalatest.BeforeAndAfter
 import org.scalatestplus.play._
@@ -7,6 +6,7 @@ import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.{Headers, Result}
 import play.api.test.Helpers._
 import play.api.test._
+import utils.Utils
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -116,11 +116,9 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
 //      ???
 //    }
 
-    implicit val ec = scala.concurrent.ExecutionContext.global
-
     "fail if the password is not correct" in  {
       oneTest(requestBody("John", "1234567"), BAD_REQUEST) { result =>
-        result.map(contentAsString(_).contains(new UserController().invalidPassword)) mustBe Some(true)
+        result.map(contentAsString(_).contains(Utils.invalidPassword)) mustBe Some(true)
       }
     }
 

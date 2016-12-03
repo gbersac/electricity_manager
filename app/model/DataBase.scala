@@ -1,18 +1,16 @@
 package model
 
-import ch.qos.logback.classic.db.names.DBNameResolver
-import com.github.mauricio.async.db.{Connection, QueryResult}
 import com.github.mauricio.async.db.postgresql.PostgreSQLConnection
 import com.github.mauricio.async.db.postgresql.util.URLParser
 import com.github.mauricio.async.db.util.ExecutorServiceUtils.CachedExecutionContext
+import com.github.mauricio.async.db.{Connection, QueryResult}
 import com.typesafe.config.ConfigFactory
+import utils.Utils
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 object DataBase {
-  case class DbRequestError(msg: String) extends Exception
-
   val conf = ConfigFactory.load()
   val user = conf.getString("postgres.user")
   val password = conf.getString("postgres.password")
@@ -50,7 +48,7 @@ object DataBase {
     def getUserByPseudo(pseudo: String): Future[User] = connection.sendPreparedStatement(
       s"SELECT * FROM $tableName WHERE pseudo = ?", Seq(pseudo)
     ) flatMap { model.User.fromDbResult(_, pseudo) match {
-      case Left(errorMessage) => Future.failed(DbRequestError(errorMessage))
+      case Left(errorMessage) => Future.failed(Utils.ElectricityManagerError(errorMessage))
       case Right(userObj) => Future.successful(userObj)
     }}
 
