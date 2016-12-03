@@ -2,7 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS utilizer (
     id serial PRIMARY KEY,
-    pseudo varchar NOT NULL,
+    pseudo varchar NOT NULL UNIQUE,
     password varchar NOT NULL
 );
 

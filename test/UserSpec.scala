@@ -1,20 +1,29 @@
 
+import controllers.UserController
 import model.DataBase
 import org.scalatest.BeforeAndAfter
 import org.scalatestplus.play._
 import play.api.libs.json.{JsObject, Json}
-import play.api.mvc.Headers
-import play.api.test._
+import play.api.mvc.{Headers, Result}
 import play.api.test.Helpers._
-import play.api.mvc.Result
+import play.api.test._
 
 import scala.concurrent.Future
+import scala.util.Try
+import scala.util.control.NonFatal
 
 class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
 
   before {
     DataBase.User.clean
   }
+
+  def emptyFunction(p: Option[Future[Result]]): Unit = ()
+
+  def requestBody(pseudo: String, password: String) = Json.obj(
+    "pseudo" -> pseudo,
+    "password" -> password
+  )
 
   "Create user" should {
 
@@ -28,24 +37,15 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
       f(result)
     }
 
-    def emptyFunction(p: Option[Future[Result]]): Unit = ()
-
     "allow registration of a new user" in  {
-      val body = Json.obj(
-        "pseudo" -> "mario",
-        "password" -> "123456789"
-      )
-      oneTest(body, OK) { result =>
+      oneTest(requestBody("mario", "123456789"), OK) { result =>
         val expected = Json.obj("status" -> "success")
         result.map(contentAsJson) mustBe Some(expected)
       }
     }
 
     "forbid registration if username already used" in  {
-      val body = Json.obj(
-        "pseudo" -> "mario",
-        "password" -> "123456789"
-      )
+      val body = requestBody("mario", "123456789")
       oneTest(body, OK) (emptyFunction)
       oneTest(body, BAD_REQUEST) (emptyFunction)
     }
@@ -84,8 +84,31 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
 
   "User login" should {
 
+    def oneTest(
+      body: JsObject,
+      returnCode: Int,
+      user: (String, String) = ("John", "123456")
+    )(f: Option[Future[Result]] => Unit): Unit = {
+      Try(DataBase.User.createUser(user._1, user._2)) recover { case NonFatal(err) =>
+        println(s"Error creating user ${user._1}: ${err.getMessage}")
+      }
+      val result = route(app, FakeRequest(POST, "/user/connect", Headers(), body))
+      if (!result.map(status).contains(returnCode)) {
+        println(s"Expected code $returnCode, found ${result.map(status)}")
+        println(s"body: ${result map contentAsString}")
+        result.map(status) mustBe Some(returnCode)
+      }
+      f(result)
+    }
+
     "succeed if the login and password are correct" in  {
-      ???
+      oneTest(requestBody("John", "123456"), OK) (emptyFunction)
+    }
+
+    "fail if the user is not registered" in  {
+      oneTest(requestBody("Marcel", "123456"), BAD_REQUEST) { result =>
+        result.map(contentAsString(_).contains("Unknow user ")) mustBe Some(true)
+      }
     }
 
     // TODO add base64 encoding of pseudo and password
@@ -93,8 +116,12 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
 //      ???
 //    }
 
-    "fail if login or password are not correct" in  {
-      ???
+    implicit val ec = scala.concurrent.ExecutionContext.global
+
+    "fail if the password is not correct" in  {
+      oneTest(requestBody("John", "1234567"), BAD_REQUEST) { result =>
+        result.map(contentAsString(_).contains(new UserController().invalidPassword)) mustBe Some(true)
+      }
     }
 
   }

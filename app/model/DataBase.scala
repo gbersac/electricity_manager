@@ -1,5 +1,6 @@
 package model
 
+import ch.qos.logback.classic.db.names.DBNameResolver
 import com.github.mauricio.async.db.{Connection, QueryResult}
 import com.github.mauricio.async.db.postgresql.PostgreSQLConnection
 import com.github.mauricio.async.db.postgresql.util.URLParser
@@ -10,6 +11,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 object DataBase {
+  case class DbRequestError(msg: String) extends Exception
 
   val conf = ConfigFactory.load()
   val user = conf.getString("postgres.user")
@@ -31,24 +33,26 @@ object DataBase {
   object User {
     val tableName = "utilizer"
 
-    def alreadyExist(name: String): Future[Boolean] = {
-      connection.sendQuery(s"SELECT id from $tableName WHERE $tableName.pseudo = '$name'") map { result =>
-        val rows = result.rows
-        rows forall (_.nonEmpty)
-      }
+    def alreadyExist(name: String): Future[Boolean] = connection.sendQuery(
+      s"SELECT id from $tableName WHERE $tableName.pseudo = '$name'"
+    ) map { result =>
+      val rows = result.rows
+      rows forall (_.nonEmpty)
     }
 
-    def createUser(pseudo: String, password: String): Future[QueryResult] = {
-      connection.sendPreparedStatement(
-        s"""
-           | INSERT INTO $tableName (pseudo, password)
-           | VALUES (?, ?)
-           |""".stripMargin, Seq(pseudo, password)
-      ) map { query =>
-        println(s"return status: #${query.statusMessage}# rowsAffected: ${query.rowsAffected}")
-        query
-      }
-    }
+    def createUser(pseudo: String, password: String): Future[QueryResult] = connection.sendPreparedStatement(
+      s"""
+         | INSERT INTO $tableName (pseudo, password)
+         | VALUES (?, ?)
+         |""".stripMargin, Seq(pseudo, password)
+    )
+
+    def getUserByPseudo(pseudo: String): Future[User] = connection.sendPreparedStatement(
+      s"SELECT * FROM $tableName WHERE pseudo = ?", Seq(pseudo)
+    ) flatMap { model.User.fromDbResult(_, pseudo) match {
+      case Left(errorMessage) => Future.failed(DbRequestError(errorMessage))
+      case Right(userObj) => Future.successful(userObj)
+    }}
 
     def clean: Future[QueryResult] = connection.sendQuery(s"truncate $tableName CASCADE")
   }

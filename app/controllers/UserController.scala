@@ -3,57 +3,66 @@ package controllers
 import javax.inject._
 
 import model.DataBase
-import play.api.libs.json.{JsResultException, Json}
+import play.api.libs.json.JsResultException
 import play.api.mvc._
+import utils.Utils
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 import scala.util.control.NonFatal
+import DataBase.DbRequestError
 
 @Singleton
 class UserController @Inject() (implicit exec: ExecutionContext) extends Controller {
+  val missingInfoError = "Body should contain a json object with keys pseudo and password"
+  val unexpectedError = "Unexpected error"
+  val badUserCreationParamsError = "Pseudo and password should have more than 4 characters"
+  val invalidPassword = "User password is not correct"
 
   /**
     * Action to test if connection is valid.
     */
   def connect = Action.async(parse.json) { request =>
-    ???
+    val t = Try((
+      (request.body \ "pseudo").as[String],
+      (request.body \ "password").as[String]
+    )) map { case (pseudo: String, password: String) =>
+      DataBase.User.getUserByPseudo(pseudo) map { user =>
+        if (user.isPasswordCorrect(password))
+          Ok(Utils.successBody)
+        else
+          BadRequest(Utils.failureBody(invalidPassword))
+      } recover { case DbRequestError(errorMsg) => BadRequest(Utils.failureBody(errorMsg))}
+    } recover {
+      case JsResultException(_) => Utils.failureResponse(missingInfoError, BAD_REQUEST)
+      case DataBase.DbRequestError(errorMsg) => Utils.failureResponse(errorMsg, BAD_REQUEST)
+      case NonFatal(err) => Utils.failureResponse(err.getMessage, INTERNAL_SERVER_ERROR)
+    }
+    t.getOrElse(Utils.failureResponse(unexpectedError, INTERNAL_SERVER_ERROR))
   }
 
   def create = Action.async(parse.json) { request =>
     val t = Try ((
       (request.body \ "pseudo").as[String],
       (request.body \ "password").as[String]
-    )) map { case (pseudo, password) =>
-      if (pseudo.size < 4 || password.size < 4)
-        Future.successful(BadRequest(Json.obj(
-          "status" -> "failure",
-          "reason" -> s"pseudo and password should be under 4 characters"
-        )))
+    )) map { case (pseudo: String, password: String) =>
+      if (pseudo.length < 4 || password.length < 4)
+        Utils.failureResponse(badUserCreationParamsError, BAD_REQUEST)
       else DataBase.User.alreadyExist(pseudo) flatMap { alreadyExist =>
         if (alreadyExist)
-          Future.successful(BadRequest(Json.obj(
-            "status" -> "failure",
-            "reason" -> s"pseudo $pseudo already used"
-          )))
+          Utils.failureResponse(s"pseudo $pseudo already used", BAD_REQUEST)
         else DataBase.User.createUser(pseudo, password) map { queryResult =>
           if (DataBase.queryResultIsSuccess(queryResult))
-            Ok(Json.obj("status" -> "success"))
+            Ok(Utils.successBody)
           else
-            BadRequest(Json.obj("status" -> queryResult.statusMessage))
+            BadRequest(Utils.failureBody(queryResult.statusMessage))
         }
       }
     } recover {
-      case JsResultException(_) => Future.successful(BadRequest(Json.obj(
-        "status" -> "failure",
-        "reason" -> "body should contain a json object with keys pseudo and password"
-      )))
-      case NonFatal(err) => Future.successful(InternalServerError(Json.obj(
-          "status" -> "failure",
-          "reason" -> err.getMessage
-        )))
+      case JsResultException(_) => Utils.failureResponse(missingInfoError, BAD_REQUEST)
+      case NonFatal(err) => Utils.failureResponse(err.getMessage, INTERNAL_SERVER_ERROR)
     }
-    t.getOrElse(Future.successful(InternalServerError(Json.obj("status" -> "failure"))))
+    t.getOrElse(Utils.failureResponse(unexpectedError, INTERNAL_SERVER_ERROR))
   }
 
 }
