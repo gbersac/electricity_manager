@@ -25,8 +25,9 @@ object DataBase {
     connect
   }
 
-  def queryResultIsSuccess(result: QueryResult, affectedRow: Int = 1): Boolean =
-    affectedRow == result.rowsAffected
+  def cleanDB: Future[QueryResult] = connection.sendQuery(
+    s"truncate ${User.tableName}, ${PowerStation.tableName} CASCADE"
+  )
 
   object User {
     val tableName = "utilizer"
@@ -51,6 +52,24 @@ object DataBase {
       case Left(errorMessage) => Future.failed(Utils.ElectricityManagerError(errorMessage))
       case Right(userObj) => Future.successful(userObj)
     }}
+
+    def clean: Future[QueryResult] = connection.sendQuery(s"truncate $tableName CASCADE")
+  }
+
+  object PowerStation {
+    val tableName = "power_station"
+
+    def create(
+      typePW: String,
+      code: String,
+      maxCapacity: Int,
+      proprietary: User
+    ): Future[QueryResult] = connection.sendPreparedStatement(
+      s"""
+         | INSERT INTO $tableName (type, code, max_capacity, proprietary)
+         | VALUES (?, ?, ?, ?)
+         |""".stripMargin, Seq(typePW, code, maxCapacity, proprietary.id)
+    )
 
     def clean: Future[QueryResult] = connection.sendQuery(s"truncate $tableName CASCADE")
   }

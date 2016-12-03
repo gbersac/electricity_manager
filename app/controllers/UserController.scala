@@ -35,7 +35,7 @@ class UserController @Inject() (implicit exec: ExecutionContext) extends Control
         if (alreadyExist)
           Utils.failureResponse(s"pseudo $pseudo already used", BAD_REQUEST)
         else DataBase.User.createUser(pseudo, password) map { queryResult =>
-          if (DataBase.queryResultIsSuccess(queryResult))
+          if (queryResult.rowsAffected == 1)
             Ok(Utils.successBody)
           else
             BadRequest(Utils.failureBody(queryResult.statusMessage))

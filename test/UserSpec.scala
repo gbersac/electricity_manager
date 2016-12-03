@@ -8,14 +8,15 @@ import play.api.test.Helpers._
 import play.api.test._
 import utils.Utils
 
-import scala.concurrent.Future
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
 class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
 
   before {
-    DataBase.User.clean
+    Await.ready(DataBase.User.clean, Duration(5, "s"))
   }
 
   def emptyFunction(p: Option[Future[Result]]): Unit = ()

@@ -29,7 +29,7 @@ object Utils extends Controller {
     val t = Try((
       (input.body \ "pseudo").as[String],
       (input.body \ "password").as[String]
-      )) map { case (pseudo: String, password: String) =>
+    )) map { case (pseudo: String, password: String) =>
       DataBase.User.getUserByPseudo(pseudo) flatMap { user =>
         if (user.isPasswordCorrect(password))
           f(user)
