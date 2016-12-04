@@ -2,7 +2,7 @@ package model
 
 import com.github.mauricio.async.db.RowData
 import play.api.libs.json._
-import utils.Utils.ElectricityManagerError
+import utils.ControllerUtils.ElectricityManagerError
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -40,7 +40,7 @@ case class PowerStation(
 }
 
 object PowerStation {
-  val noPermissionError = "You don't have permission to this power station"
+  val noPermissionError = "You don't have permission to use this power station"
 
   /**
     * Return a `PowerStation` without the associated `variations` and `currentEnergy`.

@@ -10,7 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-object Utils extends Controller {
+object ControllerUtils extends Controller {
   val jsonMimeType = "application/json"
 
   val invalidPassword = "User password is not correct"
@@ -35,7 +35,7 @@ object Utils extends Controller {
           f(user)
         else
           failureResponse(invalidPassword, BAD_REQUEST)
-      } recover { case ElectricityManagerError(errorMsg) => BadRequest(Utils.failureBody(errorMsg))}
+      } recover { case ElectricityManagerError(errorMsg) => BadRequest(ControllerUtils.failureBody(errorMsg))}
     } recover {
       case JsResultException(_) => failureResponse(missingUserInfoError, BAD_REQUEST)
       case NonFatal(err) => failureResponse(err.getMessage, INTERNAL_SERVER_ERROR)

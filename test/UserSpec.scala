@@ -6,7 +6,7 @@ import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.{Headers, Result}
 import play.api.test.Helpers._
 import play.api.test._
-import utils.Utils
+import utils.ControllerUtils
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
@@ -119,7 +119,7 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
 
     "fail if the password is not correct" in  {
       oneTest(requestBody("John", "1234567"), BAD_REQUEST) { result =>
-        result.map(contentAsString(_).contains(Utils.invalidPassword)) mustBe Some(true)
+        result.map(contentAsString(_).contains(ControllerUtils.invalidPassword)) mustBe Some(true)
       }
     }
 

@@ -6,7 +6,7 @@ import com.github.mauricio.async.db.util.ExecutorServiceUtils.CachedExecutionCon
 import com.github.mauricio.async.db.{Connection, QueryResult}
 import com.typesafe.config.ConfigFactory
 import org.joda.time.DateTime
-import utils.Utils.ElectricityManagerError
+import utils.ControllerUtils.ElectricityManagerError
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
