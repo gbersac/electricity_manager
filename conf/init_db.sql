@@ -14,9 +14,9 @@ CREATE TABLE IF NOT EXISTS power_station (
     proprietary integer REFERENCES utilizer(id)
 );
 
-CREATE TABLE IF NOT EXISTS electricity_change (
+CREATE TABLE IF NOT EXISTS electricity_variation (
     id serial PRIMARY KEY,
-    execution timestamp NOT NULL,
+    execution_date timestamp NOT NULL,
     delta integer NOT NULL,
     station integer REFERENCES power_station(id)
 );

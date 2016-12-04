@@ -5,7 +5,8 @@ import com.github.mauricio.async.db.postgresql.util.URLParser
 import com.github.mauricio.async.db.util.ExecutorServiceUtils.CachedExecutionContext
 import com.github.mauricio.async.db.{Connection, QueryResult}
 import com.typesafe.config.ConfigFactory
-import utils.Utils
+import org.joda.time.DateTime
+import utils.Utils.ElectricityManagerError
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -21,8 +22,13 @@ object DataBase {
   implicit val connection = {
     val configuration = URLParser.parse(connectionUrl)
     val connect: Connection = new PostgreSQLConnection(configuration)
-    Await.result(connect.connect, 5 seconds)
+    Await.result(connect.connect, Duration(5, "s"))
     connect
+  }
+
+  def eitherToFuture[B](either: Either[String, B]): Future[B] = either match {
+    case Right(a) => Future.successful(a)
+    case Left(b) => Future.failed(ElectricityManagerError(b))
   }
 
   def cleanDB: Future[QueryResult] = connection.sendQuery(
@@ -49,7 +55,7 @@ object DataBase {
     def getUserByPseudo(pseudo: String): Future[User] = connection.sendPreparedStatement(
       s"SELECT * FROM $tableName WHERE pseudo = ?", Seq(pseudo)
     ) flatMap { model.User.fromDbResult(_, pseudo) match {
-      case Left(errorMessage) => Future.failed(Utils.ElectricityManagerError(errorMessage))
+      case Left(errorMessage) => Future.failed(ElectricityManagerError(errorMessage))
       case Right(userObj) => Future.successful(userObj)
     }}
 
@@ -71,7 +77,47 @@ object DataBase {
          |""".stripMargin, Seq(typePW, code, maxCapacity, proprietary.id)
     )
 
-    def clean: Future[QueryResult] = connection.sendQuery(s"truncate $tableName CASCADE")
+    def getById(id: Int, user: User): Future[PowerStation] = connection.sendPreparedStatement(
+      s"SELECT * FROM $tableName WHERE id = ?", Seq(id)
+    ) flatMap { queryResult =>
+      val rows = queryResult.rows.map(_.iterator.toSeq).getOrElse(Seq())
+      if (rows.nonEmpty) Future.successful(rows.head)
+      else Future.failed(ElectricityManagerError(s"No power station with id $id"))
+    } flatMap { row => model.PowerStation.fromDbResult(row, user) match {
+        case Left(errorMessage) => Future.failed(ElectricityManagerError(errorMessage))
+        case Right(powerStation) => Future.successful(powerStation)
+    }}
+
+    // No `Future.sequence` on the seq in the result because I want to give the user
+    // the responsibility to handle errors.
+    def allOwnedByUser(user: User): Future[Seq[Future[PowerStation]]] = connection.sendPreparedStatement(
+      s"SELECT * FROM $tableName WHERE proprietary = ?", Seq(user.id)
+    ) map { queryResult =>
+      queryResult.rows.map(_.iterator.toSeq).getOrElse(Seq())
+    } map { _.map { row => for {
+      psEither <- eitherToFuture(model.PowerStation.fromDbResult(row, user))
+      completePS <- psEither.withAssociatedVariation
+    } yield completePS }}
+
+  }
+
+  object PowerVariation {
+    val tableName = "electricity_variation"
+
+    def getAllAssiociatedWithPowerStation(
+      ps: PowerStation
+    ): Future[Seq[Either[String, PowerVariation]]] = connection.sendPreparedStatement(
+      s"SELECT * FROM $tableName WHERE station = ?", Seq(ps.id)
+    ) map { queryResult =>
+      queryResult.rows.map(_.iterator.toSeq).getOrElse(Seq())
+    } map { rows => rows.map { row => model.PowerVariation.fromDbResult(row, ps) } }
+
+    def create(powerStation: PowerStation, delta: Int): Future[QueryResult] = connection.sendPreparedStatement(
+      s"""
+         | INSERT INTO $tableName (execution_date, delta, station)
+         | VALUES (?, ?, ?)
+         |""".stripMargin, Seq(DateTime.now, delta, powerStation.id)
+    )
   }
 
   // TODO add deconnection

@@ -21,10 +21,9 @@ object User {
     id = row("id").asInstanceOf[Int],
     pseudo = pseudo,
     password = row("password").asInstanceOf[String]
-  ))
-  } match {
+  ))} match {
     case Some(Success(user)) => Right(user)
-    case Some(Failure(err)) => Left(s"unexpected error: ${err.getMessage}")
+    case Some(Failure(err)) => Left(s"Malformed db row: ${err.getMessage}")
     case None => Left(s"Unknow user $pseudo")
   }
 }
