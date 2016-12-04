@@ -2,8 +2,10 @@ import com.github.mauricio.async.db.QueryResult
 import controllers.PowerStationController
 import model.{DataBase, PowerStation, PowerVariation, User}
 import org.joda.time.DateTime
+import org.mindrot.jbcrypt.BCrypt
 import org.scalatest.BeforeAndAfter
 import org.scalatest.concurrent.AsyncAssertions
+import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatestplus.play._
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Headers, Result}
@@ -23,9 +25,8 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
     s"""
        | INSERT INTO utilizer (id, pseudo, password)
        | VALUES (?, ?, ?)
-       |""".stripMargin, Seq(user.id, user.pseudo, user.password)
+       |""".stripMargin, Seq(user.id, user.pseudo, BCrypt.hashpw(user.password, BCrypt.gensalt()))
   )
-
 
   before {
     Await.ready(DataBase.cleanDB, Duration(5, "s"))
@@ -48,6 +49,11 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
     "typePW" -> typePW,
     "code" -> code,
     "maxCapacity" -> maxCapacity
+  )
+
+  implicit override val patienceConfig = PatienceConfig(
+    timeout = scaled(Span(2, Seconds)),
+    interval = scaled(Span(5, Millis))
   )
 
   def withPowerStation(
@@ -249,7 +255,6 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
         """[{"id":1,"typePW":"","code":"","maxCapacity":100,"variations":
           |[{"execution":"2016-12-03T18:20:00.000+01:00","delta":50}],"currentEnergy":0}]
           |""".stripMargin.split("\n").mkString
-      println(Json.toJson(toFormat.map(_.toJson)).toString)
       assert(Json.toJson(toFormat.map(_.toJson)).toString == correctJson)
     }
 

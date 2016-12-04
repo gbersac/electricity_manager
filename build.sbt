@@ -8,6 +8,7 @@ scalaVersion := "2.11.7"
 
 libraryDependencies ++= Seq(
   "com.github.mauricio" %% "postgresql-async" % "0.2.20",
+  "org.mindrot" % "jbcrypt" % "0.3m",
   jdbc,
   cache,
   ws,

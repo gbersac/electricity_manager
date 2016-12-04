@@ -1,6 +1,7 @@
 package model
 
 import com.github.mauricio.async.db.QueryResult
+import org.mindrot.jbcrypt.BCrypt
 
 import scala.util.{Failure, Success, Try}
 
@@ -9,8 +10,9 @@ case class User(
   pseudo: String,
   password: String
 ) {
-  // TODO improve login method
-  def isPasswordCorrect(input: String): Boolean = password == input
+
+  def isPasswordCorrect(input: String): Boolean = BCrypt.checkpw(input, password)
+
 }
 
 object User {
@@ -26,4 +28,5 @@ object User {
     case Some(Failure(err)) => Left(s"Malformed db row: ${err.getMessage}")
     case None => Left(s"Unknow user $pseudo")
   }
+
 }

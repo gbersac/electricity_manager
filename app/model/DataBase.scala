@@ -6,6 +6,7 @@ import com.github.mauricio.async.db.util.ExecutorServiceUtils.CachedExecutionCon
 import com.github.mauricio.async.db.{Connection, QueryResult}
 import com.typesafe.config.ConfigFactory
 import org.joda.time.DateTime
+import org.mindrot.jbcrypt.BCrypt
 import utils.ControllerUtils.ElectricityManagerError
 
 import scala.concurrent.duration._
@@ -47,11 +48,12 @@ object DataBase {
       rows forall (_.nonEmpty)
     }
 
-    def createUser(pseudo: String, password: String): Future[QueryResult] = connection.sendPreparedStatement(
+    def createUser(pseudo: String, password: String): Future[QueryResult] =
+    connection.sendPreparedStatement(
       s"""
          | INSERT INTO $tableName (pseudo, password)
          | VALUES (?, ?)
-         |""".stripMargin, Seq(pseudo, password)
+         |""".stripMargin, Seq(pseudo, BCrypt.hashpw(password, BCrypt.gensalt()))
     )
 
     def getUserByPseudo(pseudo: String): Future[User] = connection.sendPreparedStatement(
@@ -121,6 +123,5 @@ object DataBase {
   }
 
   // TODO add deconnection
-  // connection.disconnect
 
 }
