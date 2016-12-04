@@ -1,5 +1,5 @@
 # electricity_manager
-Api to manage your electricity production. This project has been made in a limited amount of time and is still considered a work in progress. Many mandatory features are still missing like encryption of user password in data base. See the issue page for more information.
+Api to manage your electricity production. This project has been made in a limited amount of time and is still considered a work in progress. See the issue page for more information.
 
 ## Installation
 
@@ -22,3 +22,55 @@ psql -c '\i conf/init_db.sql' -U postgres -d electricity_manager_test -W
 ```
 
 Data base options are available in the conf file.
+
+## Usage
+
+To create a new user :
+
+```sh
+curl --include \
+  --request POST \
+  --header "Content-type: application/json" \
+  --data '{"pseudo":"John","password":"123456"}' \
+  http://localhost:9000/user/create
+```
+
+To test login :
+
+```sh
+curl --include \
+  --request POST \
+  --header "Content-type: application/json" \
+  --data '{"pseudo":"John","password":"123456"}' \
+  http://localhost:9000/user/connect
+```
+
+To create a new power station :
+
+```sh
+curl --include \
+  --request POST \
+  --header "Content-type: application/json" \
+  --data '{"pseudo":"John","password":"123456","typePW":"Solar Panel","code":"SP1","maxCapacity":100}' \
+  http://localhost:9000/power_station/create
+```
+
+To add/remove energy in a power station :
+
+```sh
+curl --include \
+  --request POST \
+  --header "Content-type: application/json" \
+  --data '{"pseudo":"John","password":"123456","delta":50,"stationId":2}' \
+  http://localhost:9000/power_station/use
+```
+
+To get the list of all stations and electricity variation for a user :
+
+```sh
+curl --include \
+  --request POST \
+  --header "Content-type: application/json" \
+  --data '{"pseudo":"John","password":"123456"}' \
+  http://localhost:9000/power_station/power_variations
+```
