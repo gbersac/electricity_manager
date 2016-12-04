@@ -34,7 +34,7 @@ object DataBase {
   }
 
   def cleanDB: Future[QueryResult] = connection.sendQuery(
-    s"truncate ${User.tableName}, ${PowerStation.tableName} CASCADE"
+    s"truncate ${User.tableName}, ${PowerStation.tableName}, ${PowerVariation.tableName} CASCADE"
   )
 
   object User {

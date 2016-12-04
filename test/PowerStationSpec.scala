@@ -253,17 +253,6 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
       assert(Json.toJson(toFormat.map(_.toJson)).toString == correctJson)
     }
 
-    "return many station if there is many station for one user" in {
-      withPowerStation(1, "solar panel", "SP1", 100) { _ =>
-        withPowerStation(2, "solar panel", "SP2", 100) { _ =>
-          oneTest() { result =>
-            doesResultContain("SP1")(result)
-            doesResultContain("SP2")(result)
-          }
-        }
-      }
-    }
-
   }
 
 }

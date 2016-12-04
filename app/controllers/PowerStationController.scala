@@ -61,7 +61,7 @@ class PowerStationController @Inject() (implicit exec: ExecutionContext) extends
         }
       } recover {
         case JsResultException(_) =>
-          Utils.failureResponse(PowerStationController.missingPowerStationInfosError, BAD_REQUEST)
+          Utils.failureResponse(PowerStationController.missingPowerVariationInfosError, BAD_REQUEST)
         case NonFatal(err) => Utils.failureResponse(err.getMessage, INTERNAL_SERVER_ERROR)
       }
       t.getOrElse(Utils.failureResponse(Utils.unexpectedError, INTERNAL_SERVER_ERROR))
@@ -84,4 +84,5 @@ class PowerStationController @Inject() (implicit exec: ExecutionContext) extends
 object PowerStationController {
   val incorrectCapacityError = "Capacity should be positive."
   val missingPowerStationInfosError = "Body should contain typePW, code and maxCapacity."
+  val missingPowerVariationInfosError = "Body should contain delta and stationId."
 }
