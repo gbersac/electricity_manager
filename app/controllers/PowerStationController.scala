@@ -7,7 +7,7 @@ import play.api.libs.json.{JsResultException, Json}
 import play.api.mvc._
 import utils.Utils
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -70,7 +70,12 @@ class PowerStationController @Inject() (implicit exec: ExecutionContext) extends
 
   def powerVariationHistory = Action.async(parse.json) { request =>
     Utils.executeWithLoggedUser(request) { user =>
-      ???
+      DataBase.PowerStation.allOwnedByUser(user) flatMap { Future.sequence(_) } map { powerStations =>
+        val json = Json.toJson(powerStations.map(_.toJson))
+        Ok(json)
+      } recover {
+        case NonFatal(err) => InternalServerError(Utils.failureBody(err.getMessage))
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 import com.github.mauricio.async.db.QueryResult
 import controllers.PowerStationController
-import model.{DataBase, PowerStation, User}
+import model.{DataBase, PowerStation, PowerVariation, User}
+import org.joda.time.DateTime
 import org.scalatest.BeforeAndAfter
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatestplus.play._
@@ -77,10 +78,13 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
     w.await
   }
 
-  def doesResultContain(expected: String)(result: Option[Future[Result]]): Unit = {
+  def doesResultContain(
+    expected: String,
+    shouldContain: Boolean = true
+  )(result: Option[Future[Result]]): Unit = {
     val contain = result.map(contentAsString(_).contains(expected)) == Some(true)
-    if (!contain) {
-      println(s"body: ${result map contentAsString}")
+    if (contain != shouldContain) {
+      println(s"body: #${result map contentAsString}# does ${if (shouldContain) "not " else ""}contain $expected")
       assert(false)
     }
   }
@@ -135,32 +139,40 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
     }
   }
 
+  def addPowerVariation(
+    delta: Int,
+    powerStation: PowerStation,
+    expectedHttpReturnCode: Int = OK,
+    user: User = userJohn
+  )(f: Option[Future[Result]] => Unit): Unit = {
+    val body = Json.obj(
+      "delta" -> delta,
+      "stationId" -> powerStation.id,
+      "pseudo" -> user.pseudo,
+      "password" -> user.password
+    )
+    val result = route(app, FakeRequest(POST, "/power_station/use", Headers(), body))
+    if (!result.map(status).contains(expectedHttpReturnCode)) {
+      println(s"result body: ${result map contentAsString}")
+      println(s"Expected code $expectedHttpReturnCode, found ${result.map(status)}")
+      result.map(status) mustBe Some(expectedHttpReturnCode)
+    }
+    result.map(Await.ready(_, Duration(5, "s")))
+    f(result)
+  }
+
   "Power station usage" should {
 
-    def addPowerVariation(
-      delta: Int,
-      powerStation: PowerStation,
-      expectedHttpReturnCode: Int = OK,
-      user: User = userJohn
-    )(f: Option[Future[Result]] => Unit): Unit = {
-      val body = Json.obj(
-        "delta" -> delta,
-        "stationId" -> powerStation.id,
-        "pseudo" -> user.pseudo,
-        "password" -> user.password
+    "be formatted in json correctly" in {
+      val powerVariation = PowerVariation(
+        new DateTime(2016, 12, 3, 18, 20), 50, PowerStation(1, "", "", 100, userJohn, Seq(), 0)
       )
-      val result = route(app, FakeRequest(POST, "/power_station/use", Headers(), body))
-      if (!result.map(status).contains(expectedHttpReturnCode)) {
-        println(s"result body: ${result map contentAsString}")
-        println(s"Expected code $expectedHttpReturnCode, found ${result.map(status)}")
-        result.map(status) mustBe Some(expectedHttpReturnCode)
-      }
-      result.map(Await.ready(_, Duration(5, "s")))
-      f(result)
+      val correctJson = """{"execution":"2016-12-03T18:20:00.000+01:00","delta":50}"""
+      assert(powerVariation.toJson.toString == correctJson)
     }
 
     "succeed if new energy stock of power station is between O and max capacity" in {
-      withPowerStation(1, "solar panel", "SP0", 100) { powerStation =>
+      withPowerStation(1, "solar panel", "SP1", 100) { powerStation =>
         addPowerVariation(100, powerStation) (emptyFunction)
         addPowerVariation(-100, powerStation) (emptyFunction)
       }
@@ -173,8 +185,6 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
       withPowerStation(1, "solar panel", "SP1", 100) { powerStation =>
         addPowerVariation(-1, powerStation, BAD_REQUEST) (resultIncorrectDelta)
         addPowerVariation(200, powerStation, BAD_REQUEST) (resultIncorrectDelta)
-        addPowerVariation(50, powerStation) (emptyFunction)
-        addPowerVariation(51, powerStation, BAD_REQUEST) (resultIncorrectDelta)
       }
     }
 
@@ -196,20 +206,64 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
       }
     }
 
-//    "to delete" in {
-//      withPowerStation(1, "solar panel", "SP1", 100, userMarc) { powerStation =>
-//        assert(false)
-//      }
-//    }
-
   }
 
-//  "Stock consultation" should {
-//
-//    "return an history of all the energy stock changes" in {
-//      ???
-//    }
-//
-//  }
+  "Stock consultation" should {
+
+    def oneTest(
+      user: User = userJohn,
+      expectedHttpReturnCode: Int = OK
+    )(f: Option[Future[Result]] => Unit): Unit = {
+      val body = Json.obj(
+        "pseudo" -> user.pseudo,
+        "password" -> user.password
+      )
+      val result = route(app, FakeRequest(POST, "/power_station/power_variations", Headers(), body))
+      if (!result.map(status).contains(expectedHttpReturnCode)) {
+        println(s"Expected code $expectedHttpReturnCode, found ${result.map(status)}")
+        println(s"body: ${result map contentAsString}")
+        result.map(status) mustBe Some(expectedHttpReturnCode)
+      }
+      f(result)
+    }
+
+    "return only the stations of the user" in {
+      withPowerStation(1, "solar panel", "SP1", 100, userJohn) { _ =>
+        withPowerStation(2, "solar panel", "SP2", 100, userMarc) { _ =>
+          oneTest() { result =>
+            doesResultContain("SP1")(result)
+            doesResultContain("SP2", shouldContain = false)(result)
+          }
+        }
+      }
+    }
+
+    "format correctly stations in json" in {
+      def powerStation = PowerStation(1, "", "", 100, userJohn, Seq(), 0)
+      val toFormat = Seq(
+        PowerStation(1, "", "", 100, userJohn, Seq(
+          PowerVariation(new DateTime(2016, 12, 3, 18, 20), 50, powerStation)
+        ), 0)
+      )
+      val correctJson =
+        """[{"id":1,"typePW":"","code":"","maxCapacity":100,"variations":
+          |[{"execution":"2016-12-03T18:20:00.000+01:00","delta":50}],"currentEnergy":0}]
+          |""".stripMargin.split("\n").mkString
+      println(Json.toJson(toFormat.map(_.toJson)).toString)
+      assert(Json.toJson(toFormat.map(_.toJson)).toString == correctJson)
+    }
+
+    "return many station if there is many station for one user" in {
+      withPowerStation(1, "solar panel", "SP1", 100) { _ =>
+        withPowerStation(2, "solar panel", "SP2", 100) { _ =>
+          oneTest() { result =>
+            doesResultContain("SP1")(result)
+            doesResultContain("SP2")(result)
+          }
+        }
+      }
+    }
+
+  }
 
 }

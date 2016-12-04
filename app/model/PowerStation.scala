@@ -1,6 +1,7 @@
 package model
 
 import com.github.mauricio.async.db.RowData
+import play.api.libs.json._
 import utils.Utils.ElectricityManagerError
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,6 +26,15 @@ case class PowerStation(
   } yield this.copy(
     variations = variations,
     currentEnergy = variations.foldLeft(0)(_ + _.delta)
+  )
+
+  def toJson: JsValue = Json.obj(
+    "id" -> id,
+    "typePW" -> typePW,
+    "code" -> code,
+    "maxCapacity" -> maxCapacity,
+    "variations" -> variations.map(_.toJson),
+    "currentEnergy" -> currentEnergy
   )
 
 }

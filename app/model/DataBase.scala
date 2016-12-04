@@ -19,12 +19,14 @@ object DataBase {
   val databaseName = conf.getString("postgres.databaseName")
   val connectionUrl = s"jdbc:postgresql://localhost:$port/$databaseName?username=$user&password=$password"
 
-  implicit val connection = {
+  def createConnection: Connection = {
     val configuration = URLParser.parse(connectionUrl)
     val connect: Connection = new PostgreSQLConnection(configuration)
     Await.result(connect.connect, Duration(5, "s"))
     connect
   }
+
+  implicit val connection = createConnection
 
   def eitherToFuture[B](either: Either[String, B]): Future[B] = either match {
     case Right(a) => Future.successful(a)
@@ -88,8 +90,6 @@ object DataBase {
         case Right(powerStation) => Future.successful(powerStation)
     }}
 
-    // No `Future.sequence` on the seq in the result because I want to give the user
-    // the responsibility to handle errors.
     def allOwnedByUser(user: User): Future[Seq[Future[PowerStation]]] = connection.sendPreparedStatement(
       s"SELECT * FROM $tableName WHERE proprietary = ?", Seq(user.id)
     ) map { queryResult =>

@@ -2,6 +2,7 @@ package model
 
 import com.github.mauricio.async.db.RowData
 import org.joda.time.{DateTime, LocalDateTime}
+import play.api.libs.json.{JsValue, Json}
 import utils.Utils.ElectricityManagerError
 
 import scala.util.{Failure, Success, Try}
@@ -10,7 +11,14 @@ case class PowerVariation(
   execution: DateTime,
   delta: Int,
   station: PowerStation
-)
+) {
+
+  def toJson: JsValue = Json.obj(
+    "execution" -> execution.toString,
+    "delta" -> delta
+  )
+
+}
 
 object PowerVariation {
   val noPermissionError = "You don't have permission to this power station"
