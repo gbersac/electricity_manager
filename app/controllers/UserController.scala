@@ -2,7 +2,7 @@ package controllers
 
 import javax.inject._
 
-import model.DataBase
+import model.DBQueries
 import play.api.libs.json.JsResultException
 import play.api.mvc._
 import utils.ControllerUtils
@@ -31,10 +31,10 @@ class UserController @Inject() (implicit exec: ExecutionContext) extends Control
     )) map { case (pseudo: String, password: String) =>
       if (pseudo.length < 4 || password.length < 4)
         ControllerUtils.failureResponse(badUserCreationParamsError, BAD_REQUEST)
-      else DataBase.User.alreadyExist(pseudo) flatMap { alreadyExist =>
+      else DBQueries.User.alreadyExist(pseudo) flatMap { alreadyExist =>
         if (alreadyExist)
           ControllerUtils.failureResponse(s"pseudo $pseudo already used", BAD_REQUEST)
-        else DataBase.User.createUser(pseudo, password) map { queryResult =>
+        else DBQueries.User.createUser(pseudo, password) map { queryResult =>
           if (queryResult.rowsAffected == 1)
             Ok(ControllerUtils.successBody)
           else

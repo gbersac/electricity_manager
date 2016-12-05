@@ -1,6 +1,6 @@
 import com.github.mauricio.async.db.QueryResult
 import controllers.PowerStationController
-import model.{DataBase, PowerStation, PowerVariation, User}
+import model.{DBQueries, PowerStation, PowerVariation, User}
 import org.joda.time.DateTime
 import org.mindrot.jbcrypt.BCrypt
 import org.scalatest.BeforeAndAfter
@@ -21,7 +21,7 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
   val userJohn = User(1, "John", "123456")
   val userMarc = User(2, "Marc", "123456")
 
-  def createUser(user: User): Future[QueryResult] = DataBase.connection.sendPreparedStatement(
+  def createUser(user: User): Future[QueryResult] = DBQueries.connection.sendPreparedStatement(
     s"""
        | INSERT INTO utilizer (id, pseudo, password)
        | VALUES (?, ?, ?)
@@ -29,7 +29,7 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
   )
 
   before {
-    Await.ready(DataBase.cleanDB, Duration(5, "s"))
+    Await.ready(DBQueries.cleanDB, Duration(5, "s"))
     Await.ready(createUser(userJohn), Duration(5, "s"))
     Await.ready(createUser(userMarc), Duration(5, "s"))
   }
@@ -63,9 +63,9 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
     maxCapacity: Int,
     user: User = userJohn
   )(f: PowerStation => Unit): Unit = {
-    val future = DataBase.connection.sendPreparedStatement(
+    val future = DBQueries.connection.sendPreparedStatement(
       s"""
-         | INSERT INTO ${DataBase.PowerStation.tableName} (id, type, code, max_capacity, proprietary)
+         | INSERT INTO ${DBQueries.PowerStation.tableName} (id, type, code, max_capacity, proprietary)
          | VALUES (?, ?, ?, ?, ?)
          |""".stripMargin, Seq(id, typePW, code, maxCapacity, user.id)
     ) map { queryResult =>
@@ -256,6 +256,17 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
           |[{"execution":"2016-12-03T18:20:00.000+01:00","delta":50}],"currentEnergy":0}]
           |""".stripMargin.split("\n").mkString
       assert(Json.toJson(toFormat.map(_.toJson)).toString == correctJson)
+    }
+
+    "return many station if there is many station for one user" in {
+      withPowerStation(1, "solar panel", "SP1", 100) { _ =>
+        withPowerStation(2, "solar panel", "SP2", 100) { _ =>
+          oneTest() { result =>
+            doesResultContain("SP1")(result)
+            doesResultContain("SP2")(result)
+          }
+        }
+      }
     }
 
   }

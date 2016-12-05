@@ -1,6 +1,8 @@
 package model
 
+import com.github.mauricio.async.db.pool.{ConnectionPool, PoolConfiguration}
 import com.github.mauricio.async.db.postgresql.PostgreSQLConnection
+import com.github.mauricio.async.db.postgresql.pool.PostgreSQLConnectionFactory
 import com.github.mauricio.async.db.postgresql.util.URLParser
 import com.github.mauricio.async.db.util.ExecutorServiceUtils.CachedExecutionContext
 import com.github.mauricio.async.db.{Connection, QueryResult}
@@ -12,7 +14,7 @@ import utils.ControllerUtils.ElectricityManagerError
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-object DataBase {
+object DBQueries {
   val conf = ConfigFactory.load()
   val user = conf.getString("postgres.user")
   val password = conf.getString("postgres.password")
@@ -20,14 +22,15 @@ object DataBase {
   val databaseName = conf.getString("postgres.databaseName")
   val connectionUrl = s"jdbc:postgresql://localhost:$port/$databaseName?username=$user&password=$password"
 
+  private val factory = new PostgreSQLConnectionFactory(URLParser.parse(connectionUrl))
+  val connection = new ConnectionPool(factory, PoolConfiguration.Default)
+
   def createConnection: Connection = {
     val configuration = URLParser.parse(connectionUrl)
     val connect: Connection = new PostgreSQLConnection(configuration)
     Await.result(connect.connect, Duration(5, "s"))
     connect
   }
-
-  implicit val connection = createConnection
 
   def eitherToFuture[B](either: Either[String, B]): Future[B] = either match {
     case Right(a) => Future.successful(a)

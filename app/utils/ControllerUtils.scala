@@ -1,7 +1,7 @@
 package utils
 
 import akka.util.ByteString
-import model.{DataBase, User}
+import model.{DBQueries, User}
 import play.api.http.HttpEntity
 import play.api.libs.json.{JsResultException, JsValue, Json}
 import play.api.mvc.{Controller, Request, ResponseHeader, Result}
@@ -30,7 +30,7 @@ object ControllerUtils extends Controller {
       (input.body \ "pseudo").as[String],
       (input.body \ "password").as[String]
     )) map { case (pseudo: String, password: String) =>
-      DataBase.User.getUserByPseudo(pseudo) flatMap { user =>
+      DBQueries.User.getUserByPseudo(pseudo) flatMap { user =>
         if (user.isPasswordCorrect(password))
           f(user)
         else

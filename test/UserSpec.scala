@@ -1,5 +1,5 @@
 
-import model.DataBase
+import model.DBQueries
 import org.scalatest.BeforeAndAfter
 import org.scalatestplus.play._
 import play.api.libs.json.{JsObject, Json}
@@ -16,7 +16,7 @@ import scala.util.control.NonFatal
 class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
 
   before {
-    Await.ready(DataBase.User.clean, Duration(5, "s"))
+    Await.ready(DBQueries.User.clean, Duration(5, "s"))
   }
 
   def emptyFunction(p: Option[Future[Result]]): Unit = ()
@@ -79,8 +79,6 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
       oneTest(body3, BAD_REQUEST) (emptyFunction)
     }
 
-    // TODO add the ability to change password...but not in the spec !
-
   }
 
   "User login" should {
@@ -90,7 +88,7 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
       returnCode: Int,
       user: (String, String) = ("John", "123456")
     )(f: Option[Future[Result]] => Unit): Unit = {
-      Try(DataBase.User.createUser(user._1, user._2)) recover { case NonFatal(err) =>
+      Try(DBQueries.User.createUser(user._1, user._2)) recover { case NonFatal(err) =>
         println(s"Error creating user ${user._1}: ${err.getMessage}")
       }
       val result = route(app, FakeRequest(POST, "/user/connect", Headers(), body))
@@ -112,13 +110,8 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
       }
     }
 
-    // TODO add base64 encoding of pseudo and password
-//    "fail if login or password are not encoded in base64" in  {
-//      ???
-//    }
-
     "fail if the password is not correct" in  {
-      oneTest(requestBody("John", "1234567"), BAD_REQUEST) { result =>
+      oneTest(requestBody("John", "1234567asdf"), BAD_REQUEST) { result =>
         result.map(contentAsString(_).contains(ControllerUtils.invalidPassword)) mustBe Some(true)
       }
     }

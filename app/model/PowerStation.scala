@@ -18,7 +18,7 @@ case class PowerStation(
 ) {
 
   def withAssociatedVariation(implicit ec: ExecutionContext): Future[PowerStation] = for {
-    eitherVariations <- DataBase.PowerVariation.getAllAssiociatedWithPowerStation(this)
+    eitherVariations <- DBQueries.PowerVariation.getAllAssiociatedWithPowerStation(this)
     // TODO what to do with variations which are not correct ?
     variations <- Future.successful(
       eitherVariations.filter(_.isRight).map(_.right.get)
@@ -65,6 +65,6 @@ object PowerStation {
   }
 
   def loadById(id: Int, user: User)(implicit ec: ExecutionContext): Future[PowerStation] =
-    DataBase.PowerStation.getById(id, user) flatMap { _.withAssociatedVariation }
+    DBQueries.PowerStation.getById(id, user) flatMap { _.withAssociatedVariation }
 
 }

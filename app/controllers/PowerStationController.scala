@@ -2,7 +2,7 @@ package controllers
 
 import javax.inject._
 
-import model.{DataBase, PowerStation}
+import model.{DBQueries, PowerStation}
 import play.api.libs.json.{JsResultException, Json}
 import play.api.mvc._
 import utils.ControllerUtils
@@ -22,7 +22,7 @@ class PowerStationController @Inject() (implicit exec: ExecutionContext) extends
       ) map { case (typePW, code, maxCapacity) =>
         if (maxCapacity <= 0)
           ControllerUtils.failureResponse(PowerStationController.incorrectCapacityError, BAD_REQUEST)
-        else DataBase.PowerStation.create(typePW, code, maxCapacity, user) map { queryResult =>
+        else DBQueries.PowerStation.create(typePW, code, maxCapacity, user) map { queryResult =>
           if (queryResult.rowsAffected == 1)
             Ok(ControllerUtils.successBody)
           else
@@ -50,7 +50,7 @@ class PowerStationController @Inject() (implicit exec: ExecutionContext) extends
               s"Incorrect delta, new energy level can't be over ${powerStation.maxCapacity} or inferior to 0.",
               BAD_REQUEST
             )
-          else DataBase.PowerVariation.create(powerStation, delta) map { queryResult =>
+          else DBQueries.PowerVariation.create(powerStation, delta) map { queryResult =>
             if (queryResult.rowsAffected == 1) Ok(Json.obj(
               "status" -> "success",
               "newEnergyLevel" -> newEnergyLevel
@@ -70,7 +70,7 @@ class PowerStationController @Inject() (implicit exec: ExecutionContext) extends
 
   def powerVariationHistory = Action.async(parse.json) { request =>
     ControllerUtils.executeWithLoggedUser(request) { user =>
-      DataBase.PowerStation.allOwnedByUser(user) flatMap { Future.sequence(_) } map { powerStations =>
+      DBQueries.PowerStation.allOwnedByUser(user) flatMap { Future.sequence(_) } map { powerStations =>
         val json = Json.toJson(powerStations.map(_.toJson))
         Ok(json)
       } recover {
