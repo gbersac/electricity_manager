@@ -2,7 +2,7 @@ package controllers
 
 import javax.inject._
 
-import model.{DBQueries, PowerStation}
+import model.DBQueries
 import play.api.libs.json.{JsResultException, Json}
 import play.api.mvc._
 import utils.ControllerUtils
@@ -43,7 +43,7 @@ class PowerStationController @Inject() (implicit exec: ExecutionContext) extends
         (request.body \ "delta").as[Int],
         (request.body \ "stationId").as[Int]
       ) map { case (delta: Int, stationId) =>
-        PowerStation.loadById(stationId, user) flatMap { powerStation =>
+        DBQueries.PowerStation.getById(stationId, user) flatMap { powerStation =>
           val newEnergyLevel = powerStation.currentEnergy + delta
           if (newEnergyLevel < 0 || newEnergyLevel > powerStation.maxCapacity)
             ControllerUtils.failureResponse(

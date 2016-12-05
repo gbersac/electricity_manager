@@ -21,7 +21,7 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
   val userJohn = User(1, "John", "123456")
   val userMarc = User(2, "Marc", "123456")
 
-  def createUser(user: User): Future[QueryResult] = DBQueries.connection.sendPreparedStatement(
+  def createUser(user: User): Future[QueryResult] = DBQueries.pool.sendPreparedStatement(
     s"""
        | INSERT INTO utilizer (id, pseudo, password)
        | VALUES (?, ?, ?)
@@ -63,7 +63,7 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
     maxCapacity: Int,
     user: User = userJohn
   )(f: PowerStation => Unit): Unit = {
-    val future = DBQueries.connection.sendPreparedStatement(
+    val future = DBQueries.pool.sendPreparedStatement(
       s"""
          | INSERT INTO ${DBQueries.PowerStation.tableName} (id, type, code, max_capacity, proprietary)
          | VALUES (?, ?, ?, ?, ?)

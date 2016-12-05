@@ -4,7 +4,6 @@ import com.github.mauricio.async.db.RowData
 import play.api.libs.json._
 import utils.ControllerUtils.ElectricityManagerError
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 case class PowerStation(
@@ -16,17 +15,6 @@ case class PowerStation(
   variations: Seq[PowerVariation],
   currentEnergy: Int
 ) {
-
-  def withAssociatedVariation(implicit ec: ExecutionContext): Future[PowerStation] = for {
-    eitherVariations <- DBQueries.PowerVariation.getAllAssiociatedWithPowerStation(this)
-    // TODO what to do with variations which are not correct ?
-    variations <- Future.successful(
-      eitherVariations.filter(_.isRight).map(_.right.get)
-    )
-  } yield this.copy(
-    variations = variations,
-    currentEnergy = variations.foldLeft(0)(_ + _.delta)
-  )
 
   def toJson: JsValue = Json.obj(
     "id" -> id,
@@ -63,8 +51,5 @@ object PowerStation {
     case Failure(ElectricityManagerError(errorMsg)) => Left(errorMsg)
     case Failure(err) => Left(s"Malformed db row: ${err.getMessage}")
   }
-
-  def loadById(id: Int, user: User)(implicit ec: ExecutionContext): Future[PowerStation] =
-    DBQueries.PowerStation.getById(id, user) flatMap { _.withAssociatedVariation }
 
 }

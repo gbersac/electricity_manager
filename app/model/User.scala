@@ -16,6 +16,7 @@ case class User(
 }
 
 object User {
+
   def fromDbResult(
     result: QueryResult,
     pseudo: String
