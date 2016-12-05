@@ -3,7 +3,7 @@ package controllers
 import model.{DBQueries, User}
 import play.api.libs.json.{JsResultException, JsValue}
 import play.api.mvc.{Controller, Request, Result}
-import utils.ControllerUtils
+import utils.{ControllerUtils, DBConnectionPool}
 import utils.ControllerUtils.{ElectricityManagerError, _}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,7 +19,8 @@ object LoginController extends Controller {
   )(
     f: User => Future[Result]
   )(
-    implicit ec: ExecutionContext
+    implicit ec: ExecutionContext,
+    db: DBConnectionPool
   ): Future[Result] = {
     val t = Try((
       (input.body \ "pseudo").as[String],

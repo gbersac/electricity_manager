@@ -1,16 +1,16 @@
-import com.github.mauricio.async.db.QueryResult
 import controllers.PowerStationController
 import model.{DBQueries, PowerStation, PowerVariation, User}
 import org.joda.time.DateTime
-import org.mindrot.jbcrypt.BCrypt
-import org.scalatest.BeforeAndAfter
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.time.{Millis, Seconds, Span}
+import org.scalatest.{BeforeAndAfter, TestData}
 import org.scalatestplus.play._
+import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.{Headers, Result}
 import play.api.test.Helpers._
 import play.api.test._
+import utils.DBConnectionPool
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
@@ -18,26 +18,26 @@ import scala.util.{Failure, Success}
 
 class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter with AsyncAssertions {
 
+  override def newAppForTest(td: TestData) = new GuiceApplicationBuilder().build()
+
   implicit val ec = scala.concurrent.ExecutionContext.global
   implicit override val patienceConfig = PatienceConfig(
     timeout = scaled(Span(2, Seconds)),
     interval = scaled(Span(5, Millis))
   )
+  implicit val pool = DBConnectionPool.createPool
 
   val userJohn = User(1, "John", "123456")
   val userMarc = User(2, "Marc", "123456")
 
-  def createUser(user: User): Future[QueryResult] = DBQueries.pool.sendPreparedStatement(
-    s"""
-       | INSERT INTO utilizer (id, pseudo, password)
-       | VALUES (?, ?, ?)
-       |""".stripMargin, Seq(user.id, user.pseudo, BCrypt.hashpw(user.password, BCrypt.gensalt()))
-  )
-
   before {
-    Await.ready(DBQueries.cleanDB, Duration(5, "s"))
-    Await.ready(createUser(userJohn), Duration(5, "s"))
-    Await.ready(createUser(userMarc), Duration(5, "s"))
+    Await.ready(
+      pool.sendQuery(s"truncate ${DBQueries.User.tableName}, " +
+        s"${DBQueries.PowerStation.tableName}, ${DBQueries.PowerVariation.tableName} CASCADE")
+      , Duration(5, "s")
+    )
+    Await.ready(TestUtils.createUser(userJohn), Duration(5, "s"))
+    Await.ready(TestUtils.createUser(userMarc), Duration(5, "s"))
   }
 
   def emptyFunction(p: Option[Future[Result]]): Unit = ()
@@ -62,7 +62,7 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
     maxCapacity: Int,
     user: User = userJohn
   )(f: PowerStation => Unit): Unit = {
-    val future = DBQueries.pool.sendPreparedStatement(
+    val future = pool.sendPreparedStatement(
       s"""
          | INSERT INTO ${DBQueries.PowerStation.tableName} (id, type, code, max_capacity, proprietary)
          | VALUES (?, ?, ?, ?, ?)

@@ -5,13 +5,14 @@ import javax.inject._
 import model.DBQueries
 import play.api.libs.json.{JsResultException, Json}
 import play.api.mvc._
-import utils.ControllerUtils
+import utils.{ControllerUtils, DBConnectionPool}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-class PowerStationController @Inject() (implicit exec: ExecutionContext) extends Controller {
+@Singleton
+class PowerStationController @Inject() (implicit exec: ExecutionContext, db: DBConnectionPool) extends Controller {
 
   def create = Action.async(parse.json) { request =>
     LoginController.executeWithLoggedUser(request) { user =>

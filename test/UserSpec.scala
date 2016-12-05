@@ -1,14 +1,16 @@
 
 import controllers.LoginController
-import model.DBQueries
-import org.scalatest.BeforeAndAfter
+import model.{DBQueries, User}
 import org.scalatest.concurrent.AsyncAssertions
 import org.scalatest.time.{Millis, Seconds, Span}
+import org.scalatest.{BeforeAndAfter, TestData}
 import org.scalatestplus.play._
+import play.api.inject.guice.GuiceApplicationBuilder
 import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.{Headers, Result}
 import play.api.test.Helpers._
 import play.api.test._
+import utils.DBConnectionPool
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
@@ -17,14 +19,18 @@ import scala.util.control.NonFatal
 
 class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter with AsyncAssertions {
 
+  override def newAppForTest(td: TestData) = new GuiceApplicationBuilder().build()
+
   implicit val ec = scala.concurrent.ExecutionContext.global
   implicit override val patienceConfig = PatienceConfig(
     timeout = scaled(Span(2, Seconds)),
     interval = scaled(Span(5, Millis))
   )
+  implicit val pool = DBConnectionPool.createPool
 
   before {
-    Await.ready(DBQueries.User.clean, Duration(5, "s"))
+    Await.ready(pool.sendQuery(s"truncate ${DBQueries.User.tableName} CASCADE"), Duration(5, "s")
+    )
   }
 
   def emptyFunction(p: Option[Future[Result]]): Unit = ()
@@ -96,7 +102,7 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter with Asyn
       returnCode: Int,
       user: (String, String) = ("John", "123456")
     )(f: Option[Future[Result]] => Unit): Unit = {
-      Try(DBQueries.User.createUser(user._1, user._2)) recover { case NonFatal(err) =>
+      Try(TestUtils.createUser(User(1, user._1, user._2))) recover { case NonFatal(err) =>
         println(s"Error creating user ${user._1}: ${err.getMessage}")
       }
       val result = route(app, FakeRequest(POST, "/user/connect", Headers(), body))

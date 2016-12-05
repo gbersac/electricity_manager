@@ -5,14 +5,14 @@ import javax.inject._
 import model.DBQueries
 import play.api.libs.json.JsResultException
 import play.api.mvc._
-import utils.ControllerUtils
+import utils.{ControllerUtils, DBConnectionPool}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
 @Singleton
-class UserController @Inject() (implicit exec: ExecutionContext) extends Controller {
+class UserController @Inject() (implicit exec: ExecutionContext, db: DBConnectionPool) extends Controller {
   val badUserCreationParamsError = "Pseudo and password should have more than 4 characters"
 
   /**

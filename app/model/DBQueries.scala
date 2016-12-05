@@ -1,73 +1,48 @@
 package model
 
-import com.github.mauricio.async.db.pool.{ConnectionPool, PoolConfiguration}
-import com.github.mauricio.async.db.postgresql.PostgreSQLConnection
-import com.github.mauricio.async.db.postgresql.pool.PostgreSQLConnectionFactory
-import com.github.mauricio.async.db.postgresql.util.URLParser
+import com.github.mauricio.async.db.QueryResult
 import com.github.mauricio.async.db.util.ExecutorServiceUtils.CachedExecutionContext
-import com.github.mauricio.async.db.{Connection, QueryResult}
-import com.typesafe.config.ConfigFactory
 import org.joda.time.DateTime
 import org.mindrot.jbcrypt.BCrypt
 import utils.ControllerUtils.ElectricityManagerError
+import utils.DBConnectionPool
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 
 object DBQueries {
-  val conf = ConfigFactory.load()
-  val user = conf.getString("postgres.user")
-  val password = conf.getString("postgres.password")
-  val port = conf.getString("postgres.port")
-  val databaseName = conf.getString("postgres.databaseName")
-  val connectionUrl = s"jdbc:postgresql://localhost:$port/$databaseName?username=$user&password=$password"
-
-  private val factory = new PostgreSQLConnectionFactory(URLParser.parse(connectionUrl))
-  // TODO add deconnection
-  val pool = new ConnectionPool(factory, PoolConfiguration.Default)
-
-  def createConnection: Connection = {
-    val configuration = URLParser.parse(connectionUrl)
-    val connect: Connection = new PostgreSQLConnection(configuration)
-    Await.result(connect.connect, Duration(5, "s"))
-    connect
-  }
 
   def eitherToFuture[B](either: Either[String, B]): Future[B] = either match {
     case Right(a) => Future.successful(a)
     case Left(b) => Future.failed(ElectricityManagerError(b))
   }
 
-  def cleanDB: Future[QueryResult] = pool.sendQuery(
-    s"truncate ${User.tableName}, ${PowerStation.tableName}, ${PowerVariation.tableName} CASCADE"
-  )
-
   object User {
     val tableName = "utilizer"
 
-    def alreadyExist(name: String): Future[Boolean] = pool.sendQuery(
+    def alreadyExist(name: String)(implicit db: DBConnectionPool): Future[Boolean] = db.pool.sendQuery(
       s"SELECT id from $tableName WHERE $tableName.pseudo = '$name'"
     ) map { result =>
       val rows = result.rows
       rows forall (_.nonEmpty)
     }
 
-    def createUser(pseudo: String, password: String): Future[QueryResult] =
-    pool.sendPreparedStatement(
+    def createUser(pseudo: String, password: String)(implicit db: DBConnectionPool): Future[QueryResult] =
+    db.pool.sendPreparedStatement(
       s"""
          | INSERT INTO $tableName (pseudo, password)
          | VALUES (?, ?)
          |""".stripMargin, Seq(pseudo, BCrypt.hashpw(password, BCrypt.gensalt()))
     )
 
-    def getUserByPseudo(pseudo: String): Future[User] = pool.sendPreparedStatement(
+    def getUserByPseudo(pseudo: String)(implicit db: DBConnectionPool): Future[User] = db.pool.sendPreparedStatement(
       s"SELECT * FROM $tableName WHERE pseudo = ?", Seq(pseudo)
     ) flatMap { model.User.fromDbResult(_, pseudo) match {
       case Left(errorMessage) => Future.failed(ElectricityManagerError(errorMessage))
       case Right(userObj) => Future.successful(userObj)
     }}
 
-    def clean: Future[QueryResult] = pool.sendQuery(s"truncate $tableName CASCADE")
+    def clean(implicit db: DBConnectionPool): Future[QueryResult] = db.pool.sendQuery(s"truncate $tableName CASCADE")
+
   }
 
   object PowerStation {
@@ -78,7 +53,7 @@ object DBQueries {
       code: String,
       maxCapacity: Int,
       proprietary: User
-    ): Future[QueryResult] = pool.sendPreparedStatement(
+    )(implicit db: DBConnectionPool): Future[QueryResult] = db.pool.sendPreparedStatement(
       s"""
          | INSERT INTO $tableName (type, code, max_capacity, proprietary)
          | VALUES (?, ?, ?, ?)
@@ -88,7 +63,7 @@ object DBQueries {
     private def getIncompleteById(
       id: Int,
       user: User
-    ): Future[PowerStation] = pool.sendPreparedStatement(
+    )(implicit db: DBConnectionPool): Future[PowerStation] = db.pool.sendPreparedStatement(
       s"SELECT * FROM $tableName WHERE id = ?", Seq(id)
     ) flatMap { queryResult =>
       val rows = queryResult.rows.map(_.iterator.toSeq).getOrElse(Seq())
@@ -101,8 +76,8 @@ object DBQueries {
 
     def withAssociatedVariation(
       powerStation: PowerStation
-    ): Future[PowerStation] = for {
-      eitherVariations <- DBQueries.PowerVariation.getAllAssiociatedWithPowerStation(powerStation)
+    )(implicit db: DBConnectionPool): Future[PowerStation] = for {
+      eitherVariations <- PowerVariation.getAllAssiociatedWithPowerStation(powerStation)
       // TODO what to do with variations which are not correct ?
       variations <- Future.successful(
         eitherVariations.filter(_.isRight).map(_.right.get)
@@ -112,7 +87,11 @@ object DBQueries {
       currentEnergy = variations.foldLeft(0)(_ + _.delta)
     )
 
-    def allOwnedByUser(user: User): Future[Seq[Future[PowerStation]]] = pool.sendPreparedStatement(
+    def allOwnedByUser(
+      user: User
+    )(
+      implicit db: DBConnectionPool
+    ): Future[Seq[Future[PowerStation]]] = db.pool.sendPreparedStatement(
       s"SELECT * FROM $tableName WHERE proprietary = ?", Seq(user.id)
     ) map { queryResult =>
       queryResult.rows.map(_.iterator.toSeq).getOrElse(Seq())
@@ -121,8 +100,8 @@ object DBQueries {
       completePS <- withAssociatedVariation(incompletePS)
     } yield completePS }}
 
-    def getById(id: Int, user: User): Future[PowerStation] =
-      DBQueries.PowerStation.getIncompleteById(id, user) flatMap withAssociatedVariation
+    def getById(id: Int, user: User)(implicit db: DBConnectionPool): Future[PowerStation] =
+      PowerStation.getIncompleteById(id, user) flatMap withAssociatedVariation
 
   }
 
@@ -131,18 +110,24 @@ object DBQueries {
 
     def getAllAssiociatedWithPowerStation(
       ps: PowerStation
-    ): Future[Seq[Either[String, PowerVariation]]] = pool.sendPreparedStatement(
+    )(
+      implicit db: DBConnectionPool
+    ): Future[Seq[Either[String, PowerVariation]]] = db.pool.sendPreparedStatement(
       s"SELECT * FROM $tableName WHERE station = ?", Seq(ps.id)
     ) map { queryResult =>
       queryResult.rows.map(_.iterator.toSeq).getOrElse(Seq())
     } map { rows => rows.map { row => model.PowerVariation.fromDbResult(row, ps) } }
 
-    def create(powerStation: PowerStation, delta: Int): Future[QueryResult] = pool.sendPreparedStatement(
+    def create(
+      powerStation: PowerStation,
+      delta: Int
+    )(implicit db: DBConnectionPool): Future[QueryResult] = db.pool.sendPreparedStatement(
       s"""
          | INSERT INTO $tableName (execution_date, delta, station)
          | VALUES (?, ?, ?)
          |""".stripMargin, Seq(DateTime.now, delta, powerStation.id)
     )
+
   }
 
 }
