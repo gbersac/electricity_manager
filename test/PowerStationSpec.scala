@@ -18,6 +18,12 @@ import scala.util.{Failure, Success}
 
 class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter with AsyncAssertions {
 
+  implicit val ec = scala.concurrent.ExecutionContext.global
+  implicit override val patienceConfig = PatienceConfig(
+    timeout = scaled(Span(2, Seconds)),
+    interval = scaled(Span(5, Millis))
+  )
+
   val userJohn = User(1, "John", "123456")
   val userMarc = User(2, "Marc", "123456")
 
@@ -34,8 +40,6 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
     Await.ready(createUser(userMarc), Duration(5, "s"))
   }
 
-  implicit val ec = scala.concurrent.ExecutionContext.global
-
   def emptyFunction(p: Option[Future[Result]]): Unit = ()
 
   def requestBodyCreatePowerStation(
@@ -49,11 +53,6 @@ class PowerStationSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter w
     "typePW" -> typePW,
     "code" -> code,
     "maxCapacity" -> maxCapacity
-  )
-
-  implicit override val patienceConfig = PatienceConfig(
-    timeout = scaled(Span(2, Seconds)),
-    interval = scaled(Span(5, Millis))
   )
 
   def withPowerStation(

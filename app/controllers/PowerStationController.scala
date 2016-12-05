@@ -14,7 +14,7 @@ import scala.util.control.NonFatal
 class PowerStationController @Inject() (implicit exec: ExecutionContext) extends Controller {
 
   def create = Action.async(parse.json) { request =>
-    ControllerUtils.executeWithLoggedUser(request) { user =>
+    LoginController.executeWithLoggedUser(request) { user =>
       val t = Try(
         (request.body \ "typePW").as[String],
         (request.body \ "code").as[String],
@@ -38,7 +38,7 @@ class PowerStationController @Inject() (implicit exec: ExecutionContext) extends
   }
 
   def use = Action.async(parse.json) { request =>
-    ControllerUtils.executeWithLoggedUser(request) { user =>
+    LoginController.executeWithLoggedUser(request) { user =>
       val t = Try(
         (request.body \ "delta").as[Int],
         (request.body \ "stationId").as[Int]
@@ -69,7 +69,7 @@ class PowerStationController @Inject() (implicit exec: ExecutionContext) extends
   }
 
   def powerVariationHistory = Action.async(parse.json) { request =>
-    ControllerUtils.executeWithLoggedUser(request) { user =>
+    LoginController.executeWithLoggedUser(request) { user =>
       DBQueries.PowerStation.allOwnedByUser(user) flatMap { Future.sequence(_) } map { powerStations =>
         val json = Json.toJson(powerStations.map(_.toJson))
         Ok(json)

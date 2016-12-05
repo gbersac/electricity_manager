@@ -1,19 +1,27 @@
 
+import controllers.LoginController
 import model.DBQueries
 import org.scalatest.BeforeAndAfter
+import org.scalatest.concurrent.AsyncAssertions
+import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatestplus.play._
 import play.api.libs.json.{JsObject, Json}
 import play.api.mvc.{Headers, Result}
 import play.api.test.Helpers._
 import play.api.test._
-import utils.ControllerUtils
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
+class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter with AsyncAssertions {
+
+  implicit val ec = scala.concurrent.ExecutionContext.global
+  implicit override val patienceConfig = PatienceConfig(
+    timeout = scaled(Span(2, Seconds)),
+    interval = scaled(Span(5, Millis))
+  )
 
   before {
     Await.ready(DBQueries.User.clean, Duration(5, "s"))
@@ -112,7 +120,7 @@ class UserSpec extends PlaySpec with OneAppPerTest with BeforeAndAfter {
 
     "fail if the password is not correct" in  {
       oneTest(requestBody("John", "1234567asdf"), BAD_REQUEST) { result =>
-        result.map(contentAsString(_).contains(ControllerUtils.invalidPassword)) mustBe Some(true)
+        result.map(contentAsString(_).contains(LoginController.invalidPassword)) mustBe Some(true)
       }
     }
 

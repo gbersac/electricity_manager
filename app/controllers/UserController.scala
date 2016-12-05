@@ -19,7 +19,7 @@ class UserController @Inject() (implicit exec: ExecutionContext) extends Control
     * Action to test if connection is valid.
     */
   def connect = Action.async(parse.json) { request =>
-    ControllerUtils.executeWithLoggedUser(request) { _ =>
+    LoginController.executeWithLoggedUser(request) { _ =>
       Future.successful(Ok(ControllerUtils.successBody))
     }
   }
@@ -42,7 +42,7 @@ class UserController @Inject() (implicit exec: ExecutionContext) extends Control
         }
       }
     } recover {
-      case JsResultException(_) => ControllerUtils.failureResponse(ControllerUtils.missingUserInfoError, BAD_REQUEST)
+      case JsResultException(_) => ControllerUtils.failureResponse(LoginController.missingUserInfoError, BAD_REQUEST)
       case NonFatal(err) => ControllerUtils.failureResponse(err.getMessage, INTERNAL_SERVER_ERROR)
     }
     t.getOrElse(ControllerUtils.failureResponse(ControllerUtils.unexpectedError, INTERNAL_SERVER_ERROR))
